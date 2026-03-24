@@ -31,36 +31,40 @@ export function ChatTab() {
     const text = input.trim();
     if (!text || generating) return;
 
-    // Ensure model is loaded
     if (loader.state !== 'ready') {
       const ok = await loader.ensure();
       if (!ok) return;
     }
 
     setInput('');
-    setMessages((prev) => [...prev, { role: 'user', text }]);
+    const nextMessages: Message[] = [...messages, { role: 'user', text }];
+    setMessages(nextMessages);
     setGenerating(true);
     setInferenceActive(true);
-    resetInference(); // Reset token count for new inference
+    resetInference();
 
-    // Add empty assistant message for streaming
-    const assistantIdx = messages.length + 1;
-    setMessages((prev) => [...prev, { role: 'assistant', text: '' }]);
+    const assistantIdx = nextMessages.length;
+    setMessages(prev => [...prev, { role: 'assistant', text: '' }]);
 
     try {
-      const { stream, result: resultPromise, cancel } = await TextGeneration.generateStream(text, {
+      // Build rolling context from last 6 exchanges (3 user + 3 assistant)
+      const contextWindow = nextMessages.slice(-6);
+      const contextPrompt = contextWindow
+        .map(m => `${m.role === 'user' ? 'User' : 'Assistant'}: ${m.text}`)
+        .join('\n');
+      const fullPrompt = `${contextPrompt}\nAssistant:`;
+
+      const { stream, result: resultPromise, cancel } = await TextGeneration.generateStream(fullPrompt, {
         maxTokens: 512,
         temperature: 0.7,
       });
       cancelRef.current = cancel;
 
       let accumulated = '';
-      let tokenCount = 0;
       for await (const token of stream) {
         accumulated += token;
-        tokenCount++;
-        incrementTokens(1); // Increment privacy shield counter
-        setMessages((prev) => {
+        incrementTokens(1);
+        setMessages(prev => {
           const updated = [...prev];
           updated[assistantIdx] = { role: 'assistant', text: accumulated };
           return updated;
@@ -68,7 +72,7 @@ export function ChatTab() {
       }
 
       const result = await resultPromise;
-      setMessages((prev) => {
+      setMessages(prev => {
         const updated = [...prev];
         updated[assistantIdx] = {
           role: 'assistant',
@@ -83,7 +87,7 @@ export function ChatTab() {
       });
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
-      setMessages((prev) => {
+      setMessages(prev => {
         const updated = [...prev];
         updated[assistantIdx] = { role: 'assistant', text: `Error: ${msg}` };
         return updated;
@@ -93,10 +97,32 @@ export function ChatTab() {
       setGenerating(false);
       setInferenceActive(false);
     }
-  }, [input, generating, messages.length, loader, incrementTokens, setInferenceActive, resetInference]);
+  }, [input, generating, messages, loader, incrementTokens, setInferenceActive, resetInference]);
 
   const handleCancel = () => {
     cancelRef.current?.();
+  };
+
+  const handleClearChat = () => setMessages([]);
+
+  const handleExportChat = () => {
+    if (messages.length === 0) return;
+    const md = [
+      '# PrivateIDE Chat Session',
+      '> 100% on-device conversation. Zero bytes sent to cloud.',
+      '',
+      ...messages.map(m => `**${m.role === 'user' ? 'You' : 'AI'}:** ${m.text}`),
+      '',
+      '---',
+      '*Exported from [PrivateIDE](https://github.com)*',
+    ].join('\n\n');
+    const blob = new Blob([md], { type: 'text/markdown' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `chat-${Date.now()}.md`;
+    a.click();
+    URL.revokeObjectURL(url);
   };
 
   return (
@@ -163,14 +189,24 @@ export function ChatTab() {
           disabled={generating}
           autoFocus
         />
+        {messages.length > 0 && !generating && (
+          <>
+            <button type="button" className="btn btn-sm" onClick={handleExportChat} title="Export chat as Markdown">
+              ⬇️
+            </button>
+            <button type="button" className="btn btn-sm" onClick={handleClearChat} title="Clear conversation">
+              🗑
+            </button>
+          </>
+        )}
         {generating ? (
           <button type="button" className="btn btn-danger" onClick={handleCancel}>
             ⏹️ Stop
           </button>
         ) : (
-          <button 
-            type="submit" 
-            className="btn btn-primary" 
+          <button
+            type="submit"
+            className="btn btn-primary"
             disabled={!input.trim()}
             title="Send message (Enter)"
           >

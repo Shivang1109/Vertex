@@ -96,6 +96,55 @@ export function detectLanguageFromCode(code: string): string {
     return 'cpp';
   }
 
+  // C# detection
+  if (/\busing\s+System/.test(trimmedCode) ||
+      /\bnamespace\s+\w+/.test(trimmedCode) ||
+      /\bConsole\.Write/.test(trimmedCode)) {
+    return 'csharp';
+  }
+
+  // Ruby detection
+  if (/\bdef\s+\w+\b(?!\s*\()/.test(trimmedCode) ||
+      /\bend\b/.test(trimmedCode) ||
+      /\bputs\s+/.test(trimmedCode) ||
+      /\brequire\s+['"]/.test(trimmedCode)) {
+    return 'ruby';
+  }
+
+  // PHP detection
+  if (/<\?php/.test(trimmedCode) ||
+      /\$\w+\s*=/.test(trimmedCode)) {
+    return 'php';
+  }
+
+  // Shell detection
+  if (/^#!/.test(trimmedCode) ||
+      /\becho\s+/.test(trimmedCode) ||
+      /\$\{?\w+\}?/.test(trimmedCode)) {
+    return 'shell';
+  }
+
+  // SQL detection
+  if (/\bSELECT\b.+\bFROM\b/i.test(trimmedCode) ||
+      /\bCREATE\s+TABLE\b/i.test(trimmedCode) ||
+      /\bINSERT\s+INTO\b/i.test(trimmedCode)) {
+    return 'sql';
+  }
+
+  // Kotlin detection
+  if (/\bfun\s+\w+\s*\(/.test(trimmedCode) ||
+      /\bval\s+\w+/.test(trimmedCode) ||
+      /\bprintln\s*\(/.test(trimmedCode)) {
+    return 'kotlin';
+  }
+
+  // Swift detection
+  if (/\bvar\s+\w+\s*:\s*\w+/.test(trimmedCode) ||
+      /\bprint\s*\(/.test(trimmedCode) ||
+      /\bguard\s+let\b/.test(trimmedCode)) {
+    return 'swift';
+  }
+
   // Default to javascript
   return 'javascript';
 }

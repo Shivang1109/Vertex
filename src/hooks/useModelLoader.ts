@@ -36,7 +36,8 @@ export function useModelLoader(category: ModelCategory, coexist = false): ModelL
     loadingRef.current = true;
 
     try {
-      // Find a model for this category
+      // Find a model for this category — respect user's model preference
+      const preferredId = localStorage.getItem('privateide_model');
       const models = ModelManager.getModels().filter((m) => m.modality === category);
       if (models.length === 0) {
         setError(`No ${category} model registered`);
@@ -44,7 +45,8 @@ export function useModelLoader(category: ModelCategory, coexist = false): ModelL
         return false;
       }
 
-      const model = models[0];
+      // Use preferred model if it exists in the catalog, otherwise fall back to first
+      const model = (preferredId && models.find(m => m.id === preferredId)) ?? models[0];
 
       // Download if needed
       if (model.status !== 'downloaded' && model.status !== 'loaded') {

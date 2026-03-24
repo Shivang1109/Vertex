@@ -14,7 +14,7 @@ export function ModelBanner({ state, progress, error, onLoad, label }: Props) {
   const isLoading = state === 'downloading' || state === 'loading';
 
   return (
-    <div className={`model-banner${isLoading ? ' shimmer-sweep' : ''}`}>
+    <div className="model-banner">
       {state === 'idle' && (
         <>
           <span>No {label} model loaded.</span>
@@ -25,7 +25,7 @@ export function ModelBanner({ state, progress, error, onLoad, label }: Props) {
       )}
       {state === 'downloading' && (
         <>
-          <span style={{ color: '#b0b0b0' }}>
+          <span>
             Downloading {label}… {(progress * 100).toFixed(0)}%
           </span>
           <div className="progress-bar">
@@ -34,7 +34,7 @@ export function ModelBanner({ state, progress, error, onLoad, label }: Props) {
         </>
       )}
       {state === 'loading' && (
-        <span style={{ color: '#b0b0b0' }}>Loading {label} into engine…</span>
+        <span>Loading {label} into engine…</span>
       )}
       {state === 'error' && (
         <>

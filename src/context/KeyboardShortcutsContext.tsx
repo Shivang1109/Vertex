@@ -19,6 +19,7 @@ interface ShortcutHandlers {
   onSwitchToDevMode?: () => void;
   onSwitchToResearchMode?: () => void;
   onSwitchToChat?: () => void;
+  onRetry?: () => void;
 }
 
 interface KeyboardShortcutsContextType {
@@ -148,6 +149,13 @@ export function KeyboardShortcutsProvider({ children }: { children: ReactNode })
       if (cmdOrCtrl && e.key === '3' && !shift) {
         e.preventDefault();
         handlers.onSwitchToChat?.();
+        return;
+      }
+
+      // Cmd/Ctrl+R - Retry last action
+      if (cmdOrCtrl && e.key === 'r' && !shift) {
+        e.preventDefault();
+        handlers.onRetry?.();
         return;
       }
 

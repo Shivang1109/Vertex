@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { initSDK, getAccelerationMode } from './runanywhere';
+import { initSDK, initONNX, getAccelerationMode } from './runanywhere';
 import { ChatTab } from './components/ChatTab';
 import { VisionTab } from './components/VisionTab';
 import { VoiceTab } from './components/VoiceTab';
@@ -14,8 +14,11 @@ import { ShortcutsModal } from './components/ShortcutsModal';
 import { ShortcutsHintToast } from './components/ShortcutsHintToast';
 import { AirplaneModeButton } from './components/AirplaneModeButton';
 import { OfflineBanner } from './components/OfflineBanner';
+import { PrivacyShield } from './components/PrivacyShield';
+import { OnboardingFlow, shouldShowOnboarding } from './components/OnboardingFlow';
+import { PrivacyProofScreen } from './components/PrivacyProofScreen';
 import { PrivacyMonitorProvider, usePrivacyMonitor } from './context/PrivacyMonitorContext';
-import { ModelProvider } from './context/ModelContext';
+import { ModelProvider, useModel } from './context/ModelContext';
 import { DownloadOverlayProvider, useDownloadOverlay } from './context/DownloadOverlayContext';
 import { KeyboardShortcutsProvider, useKeyboardShortcuts } from './context/KeyboardShortcutsContext';
 
@@ -33,9 +36,9 @@ const SECONDARY_TABS: { id: SecondaryTab; label: string }[] = [
 ];
 
 const panelVariants = {
-  enter: (dir: number) => ({ opacity: 0, x: dir > 0 ? 24 : -24 }),
+  enter: (dir: number) => ({ opacity: 0, x: dir > 0 ? 16 : -16 }),
   center: { opacity: 1, x: 0 },
-  exit:  (dir: number) => ({ opacity: 0, x: dir > 0 ? -24 : 24 }),
+  exit:  (dir: number) => ({ opacity: 0, x: dir > 0 ? -16 : 16 }),
 };
 
 function AppContent() {
@@ -47,9 +50,13 @@ function AppContent() {
   const [prevView, setPrevView] = useState<ActiveView>('dev');
   const [isOfflineMode, setIsOfflineMode] = useState(false);
   const [showOfflineBanner, setShowOfflineBanner] = useState(false);
+  const [showOnboarding, setShowOnboarding] = useState(() => shouldShowOnboarding());
+  const [showPrivacyProof, setShowPrivacyProof] = useState(false);
 
   const { isVisible, progress, modelName, modelSize, hideOverlay } = useDownloadOverlay();
   const { registerHandlers } = useKeyboardShortcuts();
+  const { totalTokens, isGenerating } = usePrivacyMonitor();
+  const { modelLoaded } = useModel();
 
   const primaryMode: PrimaryMode =
     activeView === 'dev' || activeView === 'research' ? activeView : 'dev';
@@ -64,11 +71,17 @@ function AppContent() {
     setPrevView(activeView);
     setActiveView(v);
     localStorage.setItem('privateide_active_tab', v);
+    // Lazy-load ONNX backend only when user actually opens Voice or Tools
+    if (v === 'voice' || v === 'tools') {
+      initONNX().catch(console.error);
+    }
   };
 
   const handleOfflineChange = (isOffline: boolean) => {
     setIsOfflineMode(isOffline);
     setShowOfflineBanner(isOffline);
+    // Update browser tab title to signal offline mode
+    document.title = isOffline ? '✈️ Offline — PrivateIDE' : 'PrivateIDE';
   };
 
   useEffect(() => {
@@ -90,14 +103,14 @@ function AppContent() {
     return (
       <div className="app-loading">
         <div className="shimmer-loader" style={{ width: 200 }} />
-        <h2 style={{ color: '#ef5350' }}>SDK Initialization Error</h2>
+        <h2 className="error-text">SDK Initialization Error</h2>
         <p style={{
           maxWidth: 420,
-          background: 'rgba(239,83,80,0.08)',
-          border: '1px solid rgba(239,83,80,0.2)',
+          background: 'var(--red-dim)',
+          border: '1px solid rgba(248,113,113,0.2)',
           borderRadius: 12,
           padding: '12px 16px',
-          color: '#b0b0b0',
+          color: 'var(--text-3)',
         }}>{sdkError}</p>
       </div>
     );
@@ -108,13 +121,23 @@ function AppContent() {
       <div className="app-loading">
         <div className="shimmer-loader" style={{ width: 200 }} />
         <h2>Initializing AI Engine</h2>
-        <p>Loading RunAnywhere SDK • On-Device AI</p>
+        <p>Compiling WebAssembly runtime — takes ~3s on first load</p>
       </div>
     );
   }
 
   return (
     <div className={`app ${isOfflineMode ? 'offline-mode-active' : ''}`}>
+      {/* Onboarding — shown once on first visit */}
+      {showOnboarding && (
+        <OnboardingFlow onComplete={() => setShowOnboarding(false)} />
+      )}
+
+      {/* Privacy proof screen */}
+      {showPrivacyProof && (
+        <PrivacyProofScreen onClose={() => setShowPrivacyProof(false)} />
+      )}
+
       {/* Offline Banner */}
       <OfflineBanner isVisible={showOfflineBanner} onDismiss={() => setShowOfflineBanner(false)} />
 
@@ -147,6 +170,18 @@ function AppContent() {
 
         <div className="header-info">
           <span className="header-subtitle">Zero Cloud</span>
+          <button
+            className="btn btn-sm prove-it-btn"
+            onClick={() => setShowPrivacyProof(true)}
+            title="Verify zero network requests"
+          >
+            🔍 Prove It
+          </button>
+          <PrivacyShield
+            totalTokens={totalTokens}
+            isGenerating={isGenerating}
+            modelName={modelLoaded ? localStorage.getItem('privateide_model') === 'lfm2-1.2b-tool-q4_k_m' ? 'LFM2 1.2B Tool' : 'LFM2 350M' : undefined}
+          />
           <BackendBadge />
           <AirplaneModeButton onOfflineChange={handleOfflineChange} />
         </div>
@@ -187,7 +222,7 @@ function AppContent() {
               initial="enter"
               animate="center"
               exit="exit"
-              transition={{ duration: 0.22, ease: [0.4, 0, 0.2, 1] }}
+              transition={{ duration: 0.18, ease: [0.4, 0, 0.2, 1] }}
               style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}
             >
               {activeView === 'chat'   && <ChatTab />}

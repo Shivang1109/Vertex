@@ -1,231 +1,95 @@
-# 🔒 PrivateIDE
+# PrivateIDE
 
-**A local-first AI workspace for developers and researchers**
+**100% on-device AI for developers. No API keys. No cloud. No data leaves your browser.**
 
-PrivateIDE is a secure, fully offline AI coding and research workspace that runs powerful LLMs directly in your browser via the RunAnywhere SDK. **Zero cloud dependencies, zero API costs, zero data leakage.**
+Runs a full LLM (Liquid AI LFM2) in-browser via WebAssembly + WebGPU. Every inference happens locally — open DevTools → Network and watch: zero requests to any AI endpoint.
 
-## 🎯 The Problem It Solves
+---
 
-- **💸 Cost**: Cloud AI API calls cost $0.08–$0.35/min. 10K users = up to $84K/month in inference bills
-- **🔓 Privacy**: Pasting proprietary code into ChatGPT or Copilot risks IP leakage
-- **🔬 Academic Integrity**: Researchers uploading unpublished data breach confidentiality
-- **⚡ Latency**: Every cloud round-trip adds 300-400ms minimum
-- **✈️ Offline**: Cloud AI fails on planes, remote areas, and air-gapped networks
-
-## ✨ Features
-
-### 💻 Dev Mode
-Analyze proprietary code **100% locally** with zero cloud calls:
-
-- **📖 Code Explanation**: Paste any function/class and get plain language explanations
-- **📝 Docstring Generation**: Auto-generate JSDoc, Python docstrings, or XML comments
-- **🐛 Offline Debugger**: Paste broken code + error message → get root cause + fix
-- **✨ Refactor Suggestions**: Get idiomatic rewrites and best practices
-
-**VS Code-quality Monaco Editor** with syntax highlighting for JavaScript, TypeScript, Python, Go, Rust, and Java.
-
-### 🔬 Research Mode
-Work with sensitive academic documents **without uploading anywhere**:
-
-- **📚 Multi-PDF Loader**: Drag in dozens of papers — parsed 100% client-side via PDF.js
-- **💬 Document Q&A**: Ask questions across all loaded papers with source attribution
-- **📋 Chapter Outline Generator**: Cross-reference docs and draft thesis structures
-- **📖 Citation Formatter**: Extract metadata and format references in APA, MLA, or IEEE
-
-### Bonus Modes (from starter app)
-- **💬 Chat**: Stream text from on-device LLM
-- **📷 Vision**: Camera + VLM for image understanding
-- **🎙️ Voice**: Full VAD + STT + LLM + TTS pipeline
-- **🔧 Tools**: Function calling with custom tool registration
-
-## 🏗️ Architecture
-
-**4-Layer Fully Client-Side Stack**
-
-```
-┌─────────────────────────────────────────┐
-│  Layer 1: UI (React + Vite)             │
-│  Monaco Editor, PDF Viewer, Chat Panel  │
-├─────────────────────────────────────────┤
-│  Layer 2: App Logic (TypeScript)        │
-│  PDF Parsing, Prompt Templates, History │
-├─────────────────────────────────────────┤
-│  Layer 3: RunAnywhere SDK               │
-│  LLM Inference (WASM/WebGPU)            │
-├─────────────────────────────────────────┤
-│  Layer 4: Client Storage                │
-│  IndexedDB + OPFS (Zero Cloud)          │
-└─────────────────────────────────────────┘
-```
-
-**Key Guarantee**: Opening Chrome DevTools Network tab shows **zero outbound requests** to any AI inference endpoint.
-
-## 🚀 Quick Start
+## Quick Start
 
 ```bash
 npm install
 npm run dev
 ```
 
-Open [http://localhost:5173](http://localhost:5173). Models download on first use and cache in your browser's Origin Private File System (OPFS).
+Open [http://localhost:5173](http://localhost:5173)
 
-## 🛠️ Tech Stack
-
-| Category | Technology |
-|----------|-----------|
-| **Core AI** | RunAnywhere SDK (`@runanywhere/web`, `@runanywhere/web-llamacpp`) |
-| **LLM** | LFM2 350M Q4_K_M (LiquidAI) — 250MB, runs on-device |
-| **Runtime** | llama.cpp compiled to WebAssembly/WebGPU |
-| **Frontend** | React 18 + Vite 5 + TypeScript |
-| **Editor** | Monaco Editor (VS Code's editor) |
-| **PDF** | PDF.js (`pdfjs-dist`) for client-side parsing |
-| **Storage** | OPFS (models) + IndexedDB (docs/history) + localStorage (settings) |
-
-## 📦 What Gets Installed?
-
-```bash
-npm install
-# Installs:
-# - @runanywhere/web (core SDK)
-# - @runanywhere/web-llamacpp (LLM inference)  
-# - @runanywhere/web-onnx (STT/TTS/VAD)
-# - @monaco-editor/react (code editor)
-# - pdfjs-dist (PDF parsing)
-# - react + react-dom
-```
-
-## 🎨 How It Works
-
-### Dev Mode Example
-
-```typescript
-// User pastes code in Monaco Editor
-const code = `function factorial(n) { ... }`;
-
-// Local LLM explains it (no API call)
-const explanation = await TextGeneration.generateStream(
-  `Explain this code: ${code}`, 
-  { maxTokens: 500 }
-);
-// → "This function calculates factorial recursively..."
-```
-
-### Research Mode Example
-
-```typescript
-// User drops PDFs → parsed client-side
-const pdf = await pdfjsLib.getDocument(file).promise;
-const text = await extractAllText(pdf);
-
-// Ask questions across all docs (on-device)
-const answer = await TextGeneration.generateStream(
-  `Based on these papers: ${allDocTexts}\nQuestion: ${query}`,
-  { maxTokens: 800 }
-);
-// → "According to Smith et al., ..."
-```
-
-## 🔐 Privacy Guarantees
-
-✅ **No server backend** — static files only  
-✅ **No API keys** — no cloud AI services  
-✅ **No telemetry** — no analytics or tracking  
-✅ **No uploads** — PDFs and code never leave browser  
-✅ **No cookies** — all storage is sandboxed (IndexedDB/OPFS)  
-
-**Proof**: Open DevTools → Network tab → interact with PrivateIDE → see 0 requests to AI endpoints
-
-## 🌐 Deployment
-
-### Vercel (Recommended)
-
-```bash
-npm run build
-npx vercel --prod
-```
-
-The included `vercel.json` sets required COOP/COEP headers for WebAssembly threading.
-
-### Netlify
-
-Add `_headers` file:
-```
-/*
-  Cross-Origin-Opener-Policy: same-origin
-  Cross-Origin-Embedder-Policy: credentialless
-```
-
-### Any Static Host
-
-Serve `dist/` with these HTTP headers:
-```
-Cross-Origin-Opener-Policy: same-origin
-Cross-Origin-Embedder-Policy: credentialless
-```
-
-## 🧪 Demo Script
-
-1. **Privacy Demo**
-   - Open Dev Mode → Paste sensitive code
-   - Open DevTools Network tab
-   - Click "Explain" → watch 0 network requests
-   - Get instant explanation
-
-2. **Offline Demo**
-   - Enable airplane mode
-   - Refresh page (models cached in OPFS)
-   - Everything still works
-
-3. **Research Demo**
-   - Open Research Mode
-   - Drag in multiple PDFs
-   - Ask cross-document questions
-   - Generate thesis outline
-   - Format citations
-
-## 📊 Performance
-
-| Metric | Value |
-|--------|-------|
-| **Model Size** | 250MB (LFM2 350M Q4_K_M) |
-| **First Token** | <100ms (after model load) |
-| **Throughput** | 10-30 tokens/sec (varies by device) |
-| **Cost per Query** | $0.00 (fully local) |
-| **Network Calls** | 0 (after initial model download) |
-
-## 🌟 Use Cases
-
-### For Developers
-- Analyze proprietary code without cloud leakage
-- Debug issues in air-gapped environments
-- Learn new codebases on flights
-
-### For Researchers
-- Work with unpublished manuscripts safely
-- Cross-reference lab results privately
-- Generate thesis outlines from drafts
-
-### For Enterprises
-- Compliant alternative to ChatGPT/Copilot
-- Works in secure/offline environments
-- Zero data exfiltration risk
-
-## 📚 Documentation
-
-- [RunAnywhere SDK Docs](https://docs.runanywhere.ai/web/introduction)
-- [Web Starter App](https://github.com/RunanywhereAI/web-starter-app)
-- [Monaco Editor API](https://microsoft.github.io/monaco-editor/)
-- [PDF.js Documentation](https://mozilla.github.io/pdf.js/)
-
-## 🤝 Support
-
-- [GitHub Issues](https://github.com/RunanywhereAI/runanywhere-sdks/issues)
-- [Discord Community](https://discord.com/invite/N359FBbDVd)
-
-## 📄 License
-
-MIT
+> Requires a modern browser with WebAssembly support. Chrome 113+ or Edge 113+ recommended for WebGPU acceleration. Firefox works via WASM fallback.
 
 ---
 
-**Built with [RunAnywhere SDK](https://docs.runanywhere.ai) — Production-grade on-device AI for the web**
+## Demo Script (for judges / presentations)
+
+### 1. First load (~3s)
+The app initializes the WebAssembly runtime. No model is downloaded yet — that only happens when you click a feature.
+
+### 2. Dev Mode — Private Code Analysis
+1. Click **💻 Dev** in the header
+2. Paste any code into the editor (or use the default factorial example)
+3. Click **📖 Explain** — the model downloads (~250MB, cached after first time) and runs locally
+4. Watch the HUD at the bottom: **tok/s**, **latency**, **0 bytes sent**
+5. Try **🐛 Debug** with an error message, or **✨ Refactor**
+
+**Ghost AI Autocomplete:** Type a comment like `// sort the array by` and pause 300ms — the model completes it inline. Press `Tab` to accept.
+
+### 3. Research Mode — Private Document Q&A
+1. Click **🔬 Research** in the header
+2. Drag any PDF onto the drop zone (thesis draft, paper, confidential doc)
+3. Type a question and click **💬 Ask Question**
+4. The PDF is parsed entirely in-browser — never uploaded anywhere
+
+### 4. Prove It
+Click **🔍 Prove It** in the header. A live network monitor opens — interact with the AI and watch the counter stay at **0**.
+
+Or open DevTools → Network → filter Fetch/XHR → run any inference. Zero AI requests.
+
+---
+
+## Architecture
+
+```
+Browser
+├── React 19 + Vite 6 + TypeScript
+├── Monaco Editor (VS Code editor engine)
+├── PDF.js (client-side PDF parsing)
+└── RunAnywhere SDK
+    ├── LlamaCPP WASM backend (WebGPU accelerated)
+    ├── LFM2-350M-Q4_K_M (default, ~250MB)
+    └── LFM2-1.2B-Tool-Q4_K_M (optional, ~800MB)
+```
+
+All model weights are cached in the browser's Cache API after first download. Subsequent loads are instant and work fully offline.
+
+---
+
+## Keyboard Shortcuts
+
+| Action | Shortcut |
+|--------|----------|
+| Explain code | `⌘E` / `Ctrl+E` |
+| Generate docstring | `⌘D` / `Ctrl+D` |
+| Debug code | `⌘G` / `Ctrl+G` |
+| Refactor | `⌘⇧R` / `Ctrl+Shift+R` |
+| Ask question (Research) | `⌘↵` / `Ctrl+Enter` |
+| Open shortcuts modal | `⌘/` / `Ctrl+/` |
+
+---
+
+## Privacy Guarantee
+
+- **Zero telemetry** — no analytics, no error reporting, no usage tracking
+- **Zero cloud inference** — all AI runs in your browser process
+- **Model weights cached locally** — downloaded once from HuggingFace, then fully offline
+- **No API keys required** — ever
+
+---
+
+## Models
+
+| Model | Size | Context | Best for |
+|-------|------|---------|----------|
+| LFM2 350M Q4_K_M | ~250MB | 2048 tokens | Fast tasks, quick explanations |
+| LFM2 1.2B Tool Q4_K_M | ~800MB | 4096 tokens | Complex code, better reasoning |
+
+Switch models via the dropdown in Dev or Research mode. The 1.2B model downloads on demand.

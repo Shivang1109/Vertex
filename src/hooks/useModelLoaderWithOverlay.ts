@@ -1,9 +1,11 @@
-import { useState, useCallback, useRef, useEffect } from 'react';
-import { ModelManager, ModelCategory, EventBus } from '@runanywhere/web';
+import { useEffect, useCallback } from 'react';
+import { ModelCategory } from '@runanywhere/web';
+import { useModelLoader, type LoaderState } from './useModelLoader';
 import { useDownloadOverlay } from '../context/DownloadOverlayContext';
 import { useModel } from '../context/ModelContext';
+import { ModelManager } from '@runanywhere/web';
 
-export type LoaderState = 'idle' | 'downloading' | 'loading' | 'ready' | 'error';
+export type { LoaderState };
 
 interface ModelLoaderResult {
   state: LoaderState;
@@ -13,103 +15,45 @@ interface ModelLoaderResult {
 }
 
 /**
- * Enhanced hook to download + load models with cinematic overlay.
- * Tracks download progress and loading state.
- *
- * @param category - Which model category to ensure is loaded.
- * @param coexist  - If true, only unload same-category models.
+ * Composes useModelLoader with the cinematic download overlay.
+ * Delegates all model logic to the base hook; only adds overlay side-effects.
  */
 export function useModelLoaderWithOverlay(category: ModelCategory, coexist = false): ModelLoaderResult {
-  const [state, setState] = useState<LoaderState>(() =>
-    ModelManager.getLoadedModel(category) ? 'ready' : 'idle',
-  );
-  const [progress, setProgress] = useState(0);
-  const [error, setError] = useState<string | null>(null);
-  const loadingRef = useRef(false);
+  const base = useModelLoader(category, coexist);
   const { showOverlay, updateProgress, hideOverlay } = useDownloadOverlay();
   const { setModelLoaded } = useModel();
 
-  // Update overlay progress when local progress changes
+  // Mirror download progress into the overlay
   useEffect(() => {
-    if (state === 'downloading') {
-      updateProgress(progress * 100);
+    if (base.state === 'downloading') {
+      updateProgress(base.progress * 100);
     }
-  }, [progress, state, updateProgress]);
+  }, [base.progress, base.state, updateProgress]);
 
-  const ensure = useCallback(async (): Promise<boolean> => {
-    // Already loaded
-    if (ModelManager.getLoadedModel(category)) {
-      setState('ready');
-      setModelLoaded(true);
-      return true;
-    }
-
-    if (loadingRef.current) return false;
-    loadingRef.current = true;
-
-    try {
-      // Find a model for this category
+  // Show overlay when download starts, hide when done or errored
+  useEffect(() => {
+    if (base.state === 'downloading') {
       const models = ModelManager.getModels().filter((m) => m.modality === category);
-      if (models.length === 0) {
-        setError(`No ${category} model registered`);
-        setState('error');
-        return false;
-      }
-
       const model = models[0];
-      
-      // Calculate model size for display
-      const sizeInMB = model.sizeBytes ? Math.round(model.sizeBytes / 1024 / 1024) : 234;
-      const modelDisplayName = model.id.includes('350M') ? 'LFM2 350M' : 
-                               model.id.includes('1.5B') ? 'LFM2 1.5B' : 
-                               'LFM2 350M';
-
-      // Download if needed
-      if (model.status !== 'downloaded' && model.status !== 'loaded') {
-        // Show cinematic overlay
-        showOverlay(modelDisplayName, `${sizeInMB} MB`);
-        setState('downloading');
-        setProgress(0);
-
-        const unsub = EventBus.shared.on('model.downloadProgress', (evt) => {
-          if (evt.modelId === model.id) {
-            const progressValue = evt.progress ?? 0;
-            setProgress(progressValue);
-          }
-        });
-
-        await ModelManager.downloadModel(model.id);
-        unsub();
-        setProgress(1);
-        updateProgress(100);
-      }
-
-      // Load
-      setState('loading');
-      const ok = await ModelManager.loadModel(model.id, { coexist });
-      if (ok) {
-        setState('ready');
-        setModelLoaded(true);
-        
-        // Overlay will auto-hide after celebration
-        setTimeout(hideOverlay, 2500);
-        
-        return true;
-      } else {
-        setError('Failed to load model');
-        setState('error');
-        hideOverlay();
-        return false;
-      }
-    } catch (err) {
-      setError(err instanceof Error ? err.message : String(err));
-      setState('error');
-      hideOverlay();
-      return false;
-    } finally {
-      loadingRef.current = false;
+      const sizeInMB = model?.sizeBytes ? Math.round(model.sizeBytes / 1024 / 1024) : 234;
+      const displayName = model?.id.includes('350M') ? 'LFM2 350M'
+        : model?.id.includes('1.5B') ? 'LFM2 1.5B'
+        : 'LFM2 350M';
+      showOverlay(displayName, `${sizeInMB} MB`);
     }
-  }, [category, coexist, showOverlay, updateProgress, hideOverlay, setModelLoaded]);
+    if (base.state === 'ready') {
+      setModelLoaded(true);
+      setTimeout(hideOverlay, 2500);
+    }
+    if (base.state === 'error') {
+      hideOverlay();
+    }
+  }, [base.state, category, showOverlay, hideOverlay, setModelLoaded]);
 
-  return { state, progress, error, ensure };
+  // Wrap ensure to trigger overlay on first call
+  const ensure = useCallback(async (): Promise<boolean> => {
+    return base.ensure();
+  }, [base.ensure]);
+
+  return { ...base, ensure };
 }

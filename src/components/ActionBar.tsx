@@ -54,28 +54,28 @@ export function ActionBar({ content, showInsert = false, onInsert }: ActionBarPr
   return (
     <div className="action-bar">
       <button
-        className="action-btn"
+        className="btn btn-sm"
         onClick={handleCopy}
         disabled={confirmation === 'copy'}
       >
-        {confirmation === 'copy' ? '✓ Copied!' : '📋 Copy'}
+        {confirmation === 'copy' ? '✓ Copied' : '📋 Copy'}
       </button>
       
       <button
-        className="action-btn"
+        className="btn btn-sm"
         onClick={handleCopyMarkdown}
         disabled={confirmation === 'copyMarkdown'}
       >
-        {confirmation === 'copyMarkdown' ? '✓ Copied!' : '📝 Copy as Markdown'}
+        {confirmation === 'copyMarkdown' ? '✓ Copied' : '📝 Copy Markdown'}
       </button>
       
       {showInsert && onInsert && (
         <button
-          className="action-btn"
+          className="btn btn-sm"
           onClick={handleInsert}
           disabled={confirmation === 'insert'}
         >
-          {confirmation === 'insert' ? '✓ Inserted!' : '⬅️ Insert into Editor'}
+          {confirmation === 'insert' ? '✓ Inserted' : '⬅️ Insert'}
         </button>
       )}
     </div>
