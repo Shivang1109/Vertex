@@ -12,6 +12,13 @@ interface Message {
   stats?: { tokens: number; tokPerSec: number; latencyMs: number };
 }
 
+const SUGGESTIONS = [
+  'Explain async/await in JavaScript',
+  'What is a binary search tree?',
+  'Write a Python function to reverse a string',
+  'What are the SOLID principles?',
+];
+
 export function ChatTab() {
   const loader = useModelLoaderWithOverlay(ModelCategory.Language);
   const [messages, setMessages] = useState<Message[]>([]);
@@ -19,17 +26,17 @@ export function ChatTab() {
   const [generating, setGenerating] = useState(false);
   const cancelRef = useRef<(() => void) | null>(null);
   const listRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
   const { incrementTokens } = usePrivacyMonitor();
   const { setInferenceActive, resetInference } = useModel();
 
-  // Auto-scroll to bottom when messages change
   useEffect(() => {
     listRef.current?.scrollTo({ top: listRef.current.scrollHeight, behavior: 'smooth' });
   }, [messages]);
 
-  const send = useCallback(async () => {
-    const text = input.trim();
-    if (!text || generating) return;
+  const send = useCallback(async (text?: string) => {
+    const msg = (text ?? input).trim();
+    if (!msg || generating) return;
 
     if (loader.state !== 'ready') {
       const ok = await loader.ensure();
@@ -37,7 +44,7 @@ export function ChatTab() {
     }
 
     setInput('');
-    const nextMessages: Message[] = [...messages, { role: 'user', text }];
+    const nextMessages: Message[] = [...messages, { role: 'user', text: msg }];
     setMessages(nextMessages);
     setGenerating(true);
     setInferenceActive(true);
@@ -47,7 +54,6 @@ export function ChatTab() {
     setMessages(prev => [...prev, { role: 'assistant', text: '' }]);
 
     try {
-      // Build rolling context from last 6 exchanges (3 user + 3 assistant)
       const contextWindow = nextMessages.slice(-6);
       const contextPrompt = contextWindow
         .map(m => `${m.role === 'user' ? 'User' : 'Assistant'}: ${m.text}`)
@@ -99,10 +105,7 @@ export function ChatTab() {
     }
   }, [input, generating, messages, loader, incrementTokens, setInferenceActive, resetInference]);
 
-  const handleCancel = () => {
-    cancelRef.current?.();
-  };
-
+  const handleCancel = () => cancelRef.current?.();
   const handleClearChat = () => setMessages([]);
 
   const handleExportChat = () => {
@@ -114,7 +117,7 @@ export function ChatTab() {
       ...messages.map(m => `**${m.role === 'user' ? 'You' : 'AI'}:** ${m.text}`),
       '',
       '---',
-      '*Exported from [PrivateIDE](https://github.com)*',
+      '*Exported from PrivateIDE*',
     ].join('\n\n');
     const blob = new Blob([md], { type: 'text/markdown' });
     const url = URL.createObjectURL(blob);
@@ -138,52 +141,61 @@ export function ChatTab() {
       <div className="message-list" ref={listRef}>
         {messages.length === 0 && (
           <div className="empty-state">
-            <span style={{ fontSize: '48px', marginBottom: '16px' }}>💬</span>
-            <h3>Your Private AI Assistant</h3>
-            <p>Start chatting with a fully local AI model. Your conversations never leave your device.</p>
-            <p style={{ 
-              fontSize: '12px', 
-              marginTop: '16px',
-              color: 'var(--green-light)',
-              fontWeight: '600'
+            <div style={{ fontSize: '40px', marginBottom: '4px' }}>💬</div>
+            <h3>Private AI Chat</h3>
+            <p>Your conversations run entirely on-device. Nothing leaves your browser.</p>
+            <div style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px',
+              marginTop: '4px',
+              fontSize: '11px',
+              fontWeight: '600',
+              color: 'var(--green-text)',
+              background: 'var(--green-dim)',
+              border: '1px solid rgba(34,197,94,0.2)',
+              borderRadius: 'var(--radius-2xl)',
+              padding: '4px 12px',
             }}>
-              🔒 100% Private • ⚡ Fast • 🌐 Offline-Ready
-            </p>
+              <span style={{ width: '5px', height: '5px', borderRadius: '50%', background: 'var(--green)', display: 'inline-block' }} />
+              100% Private · Offline-Ready
+            </div>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginTop: '16px', justifyContent: 'center', maxWidth: '320px' }}>
+              {SUGGESTIONS.map(s => (
+                <button
+                  key={s}
+                  className="btn btn-sm"
+                  style={{ fontSize: '12px', textAlign: 'left' }}
+                  onClick={() => send(s)}
+                >
+                  {s}
+                </button>
+              ))}
+            </div>
           </div>
         )}
         {messages.map((msg, i) => (
           <div key={i} className={`message message-${msg.role}`}>
             <div className="message-bubble">
-              <p>{msg.text || <span style={{ opacity: 0.5 }}>Thinking...</span>}</p>
+              {msg.text
+                ? <span>{msg.text}</span>
+                : <span style={{ opacity: 0.5, fontStyle: 'italic' }}>Thinking...</span>
+              }
               {msg.stats && (
                 <div className="message-stats">
-                  ⚡ {msg.stats.tokens} tokens • {msg.stats.tokPerSec.toFixed(1)} tok/s • ⏱️ {msg.stats.latencyMs.toFixed(0)}ms
+                  ⚡ {msg.stats.tokens} tokens · {msg.stats.tokPerSec.toFixed(1)} tok/s · {msg.stats.latencyMs.toFixed(0)}ms
                 </div>
               )}
             </div>
           </div>
         ))}
-        {generating && (
-          <div className="message message-assistant">
-            <div className="message-bubble" style={{ 
-              display: 'flex', 
-              alignItems: 'center', 
-              gap: '8px',
-              minHeight: '44px'
-            }}>
-              <span className="cursor-blink">|</span>
-            </div>
-          </div>
-        )}
       </div>
 
-      <form
-        className="chat-input"
-        onSubmit={(e) => { e.preventDefault(); send(); }}
-      >
+      <form className="chat-input" onSubmit={(e) => { e.preventDefault(); send(); }}>
         <input
+          ref={inputRef}
           type="text"
-          placeholder="Type your message... (Press Enter to send)"
+          placeholder="Ask anything... (Enter to send)"
           value={input}
           onChange={(e) => setInput(e.target.value)}
           disabled={generating}
@@ -191,27 +203,14 @@ export function ChatTab() {
         />
         {messages.length > 0 && !generating && (
           <>
-            <button type="button" className="btn btn-sm" onClick={handleExportChat} title="Export chat as Markdown">
-              ⬇️
-            </button>
-            <button type="button" className="btn btn-sm" onClick={handleClearChat} title="Clear conversation">
-              🗑
-            </button>
+            <button type="button" className="btn btn-sm" onClick={handleExportChat} title="Export as Markdown">⬇️</button>
+            <button type="button" className="btn btn-sm" onClick={handleClearChat} title="Clear chat">🗑</button>
           </>
         )}
         {generating ? (
-          <button type="button" className="btn btn-danger" onClick={handleCancel}>
-            ⏹️ Stop
-          </button>
+          <button type="button" className="btn btn-danger" onClick={handleCancel}>⏹ Stop</button>
         ) : (
-          <button
-            type="submit"
-            className="btn btn-primary"
-            disabled={!input.trim()}
-            title="Send message (Enter)"
-          >
-            ⬆️ Send
-          </button>
+          <button type="submit" className="btn btn-primary" disabled={!input.trim()}>Send ↑</button>
         )}
       </form>
     </div>
