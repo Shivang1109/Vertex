@@ -17,7 +17,7 @@ pdfjsLib.GlobalWorkerOptions.workerSrc = new URL('pdfjs-dist/build/pdf.worker.mi
 
 interface DocumentChunk {
   documentId: string;
-  documentName: string;
+  documentName: string; 
   chunkIndex: number;
   text: string;
 }
