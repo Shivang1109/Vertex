@@ -414,8 +414,24 @@ export function ToolsTab() {
       <div className="tools-trace" ref={traceRef}>
         {trace.length === 0 && (
           <div className="empty-state">
-            <h3>Tool Calling</h3>
-            <p>{'Ask a question that requires tools — e.g. "What\'s the weather in Tokyo?" or "What is 42 * 17?"'}</p>
+            <div style={{ fontSize: '36px', marginBottom: '4px' }}>🔧</div>
+            <h3>AI Tool Calling</h3>
+            <p>Ask a question that needs real-world data. The AI will pick and call the right tool automatically.</p>
+            <div style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px',
+              marginTop: '4px',
+              fontSize: '11px',
+              fontWeight: '600',
+              color: 'var(--accent-text)',
+              background: 'var(--accent-dim)',
+              border: '1px solid rgba(59,130,246,0.2)',
+              borderRadius: 'var(--radius-2xl)',
+              padding: '4px 12px',
+            }}>
+              {registeredTools.length} tools available
+            </div>
             <div className="tools-examples">
               <button className="btn btn-sm" onClick={() => setInput('What is the weather in San Francisco?')}>🌤️ Weather</button>
               <button className="btn btn-sm" onClick={() => setInput('What is 123 * 456 + 789?')}>🧮 Calculate</button>

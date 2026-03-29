@@ -1,14 +1,10 @@
-# RunAnywhere Web Starter App
+# PrivateIDE
 
-A minimal React + TypeScript starter app demonstrating **on-device AI in the browser** using the [`@runanywhere/web`](https://www.npmjs.com/package/@runanywhere/web) SDK. All inference runs locally via WebAssembly — no server, no API key, 100% private.
+**100% on-device AI for developers. No API keys. No cloud. No data leaves your browser.**
 
-## Features
+Runs a full LLM (Liquid AI LFM2) in-browser via WebAssembly + WebGPU. Every inference happens locally — open DevTools → Network and watch: zero requests to any AI endpoint.
 
-| Tab | What it does |
-|-----|-------------|
-| **Chat** | Stream text from an on-device LLM (LFM2 350M) |
-| **Vision** | Point your camera and describe what the VLM sees (LFM2-VL 450M) |
-| **Voice** | Speak naturally — VAD detects speech, STT transcribes, LLM responds, TTS speaks back |
+---
 
 ## Quick Start
 
@@ -17,114 +13,83 @@ npm install
 npm run dev
 ```
 
-Open [http://localhost:5173](http://localhost:5173). Models are downloaded on first use and cached in the browser's Origin Private File System (OPFS).
+Open [http://localhost:5173](http://localhost:5173)
 
-## How It Works
+> Requires a modern browser with WebAssembly support. Chrome 113+ or Edge 113+ recommended for WebGPU acceleration. Firefox works via WASM fallback.
 
-```
-@runanywhere/web (npm package)
-  ├── WASM engine (llama.cpp, whisper.cpp, sherpa-onnx)
-  ├── Model management (download, OPFS cache, load/unload)
-  └── TypeScript API (TextGeneration, STT, TTS, VAD, VLM, VoicePipeline)
-```
+---
 
-The app imports everything from `@runanywhere/web`:
+## Demo Script (for judges / presentations)
 
-```typescript
-import { RunAnywhere, SDKEnvironment } from '@runanywhere/web';
-import { TextGeneration, VLMWorkerBridge } from '@runanywhere/web-llamacpp';
+### 1. First load (~3s)
+The app initializes the WebAssembly runtime. No model is downloaded yet — that only happens when you click a feature.
 
-await RunAnywhere.initialize({ environment: SDKEnvironment.Development });
+### 2. Dev Mode — Private Code Analysis
+1. Click **💻 Dev** in the header
+2. Paste any code into the editor (or use the default factorial example)
+3. Click **📖 Explain** — the model downloads (~250MB, cached after first time) and runs locally
+4. Watch the HUD at the bottom: **tok/s**, **latency**, **0 bytes sent**
+5. Try **🐛 Debug** with an error message, or **✨ Refactor**
 
-// Stream LLM text
-const { stream } = await TextGeneration.generateStream('Hello!', { maxTokens: 200 });
-for await (const token of stream) { console.log(token); }
+**Ghost AI Autocomplete:** Type a comment like `// sort the array by` and pause 300ms — the model completes it inline. Press `Tab` to accept.
 
-// VLM: describe an image
-const result = await VLMWorkerBridge.shared.process(rgbPixels, width, height, 'Describe this.');
-```
+### 3. Research Mode — Private Document Q&A
+1. Click **🔬 Research** in the header
+2. Drag any PDF onto the drop zone (thesis draft, paper, confidential doc)
+3. Type a question and click **💬 Ask Question**
+4. The PDF is parsed entirely in-browser — never uploaded anywhere
 
-## Project Structure
+### 4. Prove It
+Click **🔍 Prove It** in the header. A live network monitor opens — interact with the AI and watch the counter stay at **0**.
 
-```
-src/
-├── main.tsx              # React root
-├── App.tsx               # Tab navigation (Chat | Vision | Voice)
-├── runanywhere.ts        # SDK init + model catalog + VLM worker
-├── workers/
-│   └── vlm-worker.ts     # VLM Web Worker entry (2 lines)
-├── hooks/
-│   └── useModelLoader.ts # Shared model download/load hook
-├── components/
-│   ├── ChatTab.tsx        # LLM streaming chat
-│   ├── VisionTab.tsx      # Camera + VLM inference
-│   ├── VoiceTab.tsx       # Full voice pipeline
-│   └── ModelBanner.tsx    # Download progress UI
-└── styles/
-    └── index.css          # Dark theme CSS
-```
+Or open DevTools → Network → filter Fetch/XHR → run any inference. Zero AI requests.
 
-## Adding Your Own Models
+---
 
-Edit the `MODELS` array in `src/runanywhere.ts`:
-
-```typescript
-{
-  id: 'my-custom-model',
-  name: 'My Model',
-  repo: 'username/repo-name',           // HuggingFace repo
-  files: ['model.Q4_K_M.gguf'],         // Files to download
-  framework: LLMFramework.LlamaCpp,
-  modality: ModelCategory.Language,      // or Multimodal, SpeechRecognition, etc.
-  memoryRequirement: 500_000_000,        // Bytes
-}
-```
-
-Any GGUF model compatible with llama.cpp works for LLM/VLM. STT/TTS/VAD use sherpa-onnx models.
-
-## Deployment
-
-### Vercel
-
-```bash
-npm run build
-npx vercel --prod
-```
-
-The included `vercel.json` sets the required Cross-Origin-Isolation headers.
-
-### Netlify
-
-Add a `_headers` file:
+## Architecture
 
 ```
-/*
-  Cross-Origin-Opener-Policy: same-origin
-  Cross-Origin-Embedder-Policy: credentialless
+Browser
+├── React 19 + Vite 6 + TypeScript
+├── Monaco Editor (VS Code editor engine)
+├── PDF.js (client-side PDF parsing)
+└── RunAnywhere SDK
+    ├── LlamaCPP WASM backend (WebGPU accelerated)
+    ├── LFM2-350M-Q4_K_M (default, ~250MB)
+    └── LFM2-1.2B-Tool-Q4_K_M (optional, ~800MB)
 ```
 
-### Any static host
+All model weights are cached in the browser's Cache API after first download. Subsequent loads are instant and work fully offline.
 
-Serve the `dist/` folder with these HTTP headers on all responses:
+---
 
-```
-Cross-Origin-Opener-Policy: same-origin
-Cross-Origin-Embedder-Policy: credentialless
-```
+## Keyboard Shortcuts
 
-## Browser Requirements
+| Action | Shortcut |
+|--------|----------|
+| Explain code | `⌘E` / `Ctrl+E` |
+| Generate docstring | `⌘D` / `Ctrl+D` |
+| Debug code | `⌘G` / `Ctrl+G` |
+| Refactor | `⌘⇧R` / `Ctrl+Shift+R` |
+| Ask question (Research) | `⌘↵` / `Ctrl+Enter` |
+| Open shortcuts modal | `⌘/` / `Ctrl+/` |
 
-- Chrome 96+ or Edge 96+ (recommended: 120+)
-- WebAssembly (required)
-- SharedArrayBuffer (requires Cross-Origin Isolation headers)
-- OPFS (for persistent model cache)
+---
 
-## Documentation
+## Privacy Guarantee
 
-- [SDK API Reference](https://docs.runanywhere.ai)
-- [npm package](https://www.npmjs.com/package/@runanywhere/web)
-- [GitHub](https://github.com/RunanywhereAI/runanywhere-sdks)
+- **Zero telemetry** — no analytics, no error reporting, no usage tracking
+- **Zero cloud inference** — all AI runs in your browser process
+- **Model weights cached locally** — downloaded once from HuggingFace, then fully offline
+- **No API keys required** — ever
 
-## License
+---
 
-MIT
+## Models
+
+| Model | Size | Context | Best for |
+|-------|------|---------|----------|
+| LFM2 350M Q4_K_M | ~250MB | 2048 tokens | Fast tasks, quick explanations |
+| LFM2 1.2B Tool Q4_K_M | ~800MB | 4096 tokens | Complex code, better reasoning |
+
+Switch models via the dropdown in Dev or Research mode. The 1.2B model downloads on demand.
