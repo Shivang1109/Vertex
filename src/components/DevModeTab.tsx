@@ -372,8 +372,9 @@ export function DevModeTab() {
       const prompt = ACTION_PROMPTS[action](cappedCode, detectedLang, errorMsg);
 
       const { stream, result: resultPromise, cancel } = await TextGeneration.generateStream(prompt, {
-        maxTokens: 400,
+        maxTokens: 200,
         temperature: 0.3,
+        topP: 0.9,
       });
       cancelRef.current = cancel;
 

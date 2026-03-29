@@ -288,8 +288,9 @@ export function ResearchModeTab() {
       }
 
       const { stream, result: resultPromise, cancel } = await TextGeneration.generateStream(prompt, {
-        maxTokens: 400,
+        maxTokens: 200,
         temperature: 0.4,
+        topP: 0.9,
       });
       cancelRef.current = cancel;
 
