@@ -54,15 +54,16 @@ export function ChatTab() {
     setMessages(prev => [...prev, { role: 'assistant', text: '' }]);
 
     try {
-      const contextWindow = nextMessages.slice(-6);
+      const contextWindow = nextMessages.slice(-4);
       const contextPrompt = contextWindow
         .map(m => `${m.role === 'user' ? 'User' : 'Assistant'}: ${m.text}`)
         .join('\n');
       const fullPrompt = `${contextPrompt}\nAssistant:`;
 
       const { stream, result: resultPromise, cancel } = await TextGeneration.generateStream(fullPrompt, {
-        maxTokens: 512,
+        maxTokens: 200,
         temperature: 0.7,
+        topP: 0.9,
       });
       cancelRef.current = cancel;
 
